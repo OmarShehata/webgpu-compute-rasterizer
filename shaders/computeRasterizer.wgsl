@@ -1,5 +1,5 @@
 [[block]] struct ColorBuffer {
-  values: array<u32>;
+  values: array<atomic<u32>>;
 };
 
 struct Vertex { x: f32; y: f32; z: f32; };
@@ -15,12 +15,12 @@ struct Vertex { x: f32; y: f32; z: f32; };
   modelViewProjectionMatrix: mat4x4<f32>;
 };
 
-[[group(0), binding(0)]] var<storage, write> outputColorBuffer : ColorBuffer;
+[[group(0), binding(0)]] var<storage, read_write> outputColorBuffer : ColorBuffer;
 [[group(0), binding(1)]] var<storage, read> vertexBuffer : VertexBuffer;
 [[group(0), binding(2)]] var<uniform> uniforms : UBO;
 
 ///////////////////////////////////////////////////// Helper functions
-fn get_min_max(v1: vec2<f32>, v2: vec2<f32>, v3: vec2<f32>) -> vec4<f32> {
+fn get_min_max(v1: vec3<f32>, v2: vec3<f32>, v3: vec3<f32>) -> vec4<f32> {
   var min_max = vec4<f32>();
 
   min_max.x = min(min(v1.x, v2.x), v3.x);
@@ -35,13 +35,16 @@ fn get_min_max(v1: vec2<f32>, v2: vec2<f32>, v3: vec2<f32>) -> vec4<f32> {
 fn color_pixel(x: u32, y: u32, r: u32, g: u32, b: u32) {
   let pixelID = u32(x + y * u32(uniforms.screenWidth)) * 3u;
   
-  outputColorBuffer.values[pixelID + 0u] = r;
-  outputColorBuffer.values[pixelID + 1u] = g;
-  outputColorBuffer.values[pixelID + 2u] = b;
+  atomicMin(&outputColorBuffer.values[pixelID + 0u], r);
+  atomicMin(&outputColorBuffer.values[pixelID + 1u], g);
+  atomicMin(&outputColorBuffer.values[pixelID + 2u], b);
+  //outputColorBuffer.values[pixelID + 0u] = r;
+  //outputColorBuffer.values[pixelID + 1u] = g;
+  //outputColorBuffer.values[pixelID + 2u] = b;
 }
 
 // From: https://github.com/ssloy/tinyrenderer/wiki/Lesson-2:-Triangle-rasterization-and-back-face-culling
-fn barycentric(v1: vec2<f32>, v2: vec2<f32>, v3: vec2<f32>, p: vec2<f32>) -> vec3<f32> {
+fn barycentric(v1: vec3<f32>, v2: vec3<f32>, v3: vec3<f32>, p: vec2<f32>) -> vec3<f32> {
   let u = cross(
     vec3<f32>(v3.x - v1.x, v2.x - v1.x, v1.x - p.x), 
     vec3<f32>(v3.y - v1.y, v2.y - v1.y, v1.y - p.y)
@@ -54,7 +57,7 @@ fn barycentric(v1: vec2<f32>, v2: vec2<f32>, v3: vec2<f32>, p: vec2<f32>) -> vec
   return vec3<f32>(1.0 - (u.x+u.y)/u.z, u.y/u.z, u.x/u.z); 
 }
 
-fn draw_line(v1: vec2<f32>, v2: vec2<f32>) {
+fn draw_line(v1: vec3<f32>, v2: vec3<f32>) {
   let dist = i32(distance(v1, v2));
   for (var i = 0; i < dist; i = i + 1) {
     let x = u32(v1.x + f32(v2.x - v1.x) * (f32(i) / f32(dist)));
@@ -63,7 +66,7 @@ fn draw_line(v1: vec2<f32>, v2: vec2<f32>) {
   }
 }
 
-fn draw_triangle(v1: vec2<f32>, v2: vec2<f32>, v3: vec2<f32>, v1World: Vertex, v2World: Vertex, v3World: Vertex) {
+fn draw_triangle(v1: vec3<f32>, v2: vec3<f32>, v3: vec3<f32>, v1World: Vertex, v2World: Vertex, v3World: Vertex) {
   let min_max = get_min_max(v1, v2, v3);
   let startX = u32(min_max.x);
   let startY = u32(min_max.y);
@@ -74,9 +77,9 @@ fn draw_triangle(v1: vec2<f32>, v2: vec2<f32>, v3: vec2<f32>, v1World: Vertex, v
     for (var y: u32 = startY; y < endY; y = y + 1u) {
       let bc = barycentric(v1, v2, v3, vec2<f32>(f32(x), f32(y))); 
 
-      let R = 255.0;
-      let G = 0.0;
-      let B = 0.0;
+      let R = v1.z * 18.0;
+      let G = R;
+      let B = G;
 
       if (bc.x < 0.0 || bc.y < 0.0 || bc.z < 0.0) {
         continue;
@@ -87,12 +90,12 @@ fn draw_triangle(v1: vec2<f32>, v2: vec2<f32>, v3: vec2<f32>, v1World: Vertex, v
 }
 
 // Given vertex in world coordinate, return it in screen coordinates
-fn project(v: Vertex) -> vec2<f32> {
+fn project(v: Vertex) -> vec3<f32> {
     var screenPos = uniforms.modelViewProjectionMatrix * vec4<f32>(v.x, v.y, v.z, 1.0);
     screenPos.x = (screenPos.x / screenPos.w) * uniforms.screenWidth;
     screenPos.y = (screenPos.y / screenPos.w) * uniforms.screenHeight;
 
-    return vec2<f32>(screenPos.x, screenPos.y);
+    return vec3<f32>(screenPos.x, screenPos.y, screenPos.w);
 }
 
 fn is_off_screen(v: vec2<f32>) -> bool {
@@ -125,22 +128,23 @@ fn main([[builtin(global_invocation_id)]] global_id : vec3<u32>) {
   let v3 = project(v3World);
 
   // Discard if any points are offscreen 
-  if (is_off_screen(v1) || is_off_screen(v2) || is_off_screen(v3)) {
-    return;
-  }
+  
 
   draw_triangle(v1, v2, v3, v1World, v2World, v3World);  
 
-  draw_line(v1, v2);
-  draw_line(v2, v3);
-  draw_line(v1, v3);
+  //draw_line(v1, v2);
+  //draw_line(v2, v3);
+  //draw_line(v1, v3);
 }
 
 [[stage(compute), workgroup_size(256, 1)]]
 fn clear([[builtin(global_invocation_id)]] global_id : vec3<u32>) {
   let index = global_id.x * 3u;
 
-  outputColorBuffer.values[index + 0u] = 0u;
-  outputColorBuffer.values[index + 1u] = 0u;
-  outputColorBuffer.values[index + 2u] = 0u;
+  atomicStore(&outputColorBuffer.values[index + 0u], 255u);
+  atomicStore(&outputColorBuffer.values[index + 1u], 255u);
+  atomicStore(&outputColorBuffer.values[index + 2u], 255u);
+  //outputColorBuffer.values[index + 0u] = 0u;
+  //outputColorBuffer.values[index + 1u] = 0u;
+  //outputColorBuffer.values[index + 2u] = 0u;
 }

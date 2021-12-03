@@ -258,12 +258,11 @@ function createComputePass(presentationSize, device, modelData) {
     const viewMatrix = mat4.create();
     const now = Date.now() / 1000;
     mat4.translate(viewMatrix, viewMatrix, vec3.fromValues(3, 3, -12));
-    //mat4.rotate( viewMatrix, viewMatrix, now, vec3.fromValues(0, 0, 1) );
 
     const modelViewProjectionMatrix = mat4.create();
     
     const modelMatrix = mat4.create();
-    mat4.translate(modelMatrix, modelMatrix, vec3.fromValues(0, 0.0, 0));
+    mat4.translate(modelMatrix, modelMatrix, vec3.fromValues(0, 0.0, 2));
     mat4.rotate( modelMatrix, modelMatrix, now, vec3.fromValues(0, 1, 0) );
 
     mat4.multiply(viewMatrix, viewMatrix, modelMatrix);
