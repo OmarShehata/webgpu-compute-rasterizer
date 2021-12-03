@@ -3,6 +3,7 @@ import { mat4, vec3, vec4 } from 'gl-matrix';
 import '../style.css'
 import fullscreenQuadWGSL from '../shaders/fullscreenQuad.wgsl?raw';
 import computeRasterizerWGSL from '../shaders/computeRasterizer.wgsl?raw';
+import { loadModel } from './loadModel.js';
 
 init();
 
@@ -27,7 +28,9 @@ async function init() {
     size: presentationSize,
   });
 
-  const { addComputePass, outputColorBuffer } = createComputePass(presentationSize, device);
+  const modelData = await loadModel();
+
+  const { addComputePass, outputColorBuffer } = createComputePass(presentationSize, device, modelData);
   const { addFullscreenPass } = createFullscreenPass(presentationFormat, device, presentationSize, outputColorBuffer);
   
 
@@ -146,18 +149,20 @@ function createFullscreenPass(presentationFormat, device, presentationSize, fina
   return { addFullscreenPass };
 }
 
-function createComputePass(presentationSize, device) {
+function createComputePass(presentationSize, device, modelData) {
   const WIDTH = presentationSize[0];
   const HEIGHT = presentationSize[1];
   const COLOR_CHANNELS = 3;
 
   // Vertex buffer is XYZRGB
-  const verticesArray = new Float32Array([
-    -1, 0, 0, 255, 255, 0,
-    1, 0, 0, 255, 0, 0,
-    0, -1, 0, 255, 0, 0,
-   ]);
-  const NUMBERS_PER_VERTEX = 6;
+  // const verticesArray = new Float32Array([
+  //   -1, 0, 0, 
+  //   1, 0, 0, 
+  //   0, -1, 0
+  //  ]);
+
+  let verticesArray = modelData;
+  const NUMBERS_PER_VERTEX = 3;
   const vertexCount = verticesArray.length / NUMBERS_PER_VERTEX;
   const verticesBuffer = device.createBuffer({
     size: verticesArray.byteLength,
@@ -252,13 +257,14 @@ function createComputePass(presentationSize, device) {
     // Compute model view projection matrix
     const viewMatrix = mat4.create();
     const now = Date.now() / 1000;
-    mat4.translate(viewMatrix, viewMatrix, vec3.fromValues(2, 2, -4));
+    mat4.translate(viewMatrix, viewMatrix, vec3.fromValues(3, 3, -12));
+    //mat4.rotate( viewMatrix, viewMatrix, now, vec3.fromValues(0, 0, 1) );
 
     const modelViewProjectionMatrix = mat4.create();
     
     const modelMatrix = mat4.create();
     mat4.translate(modelMatrix, modelMatrix, vec3.fromValues(0, 0.0, 0));
-    mat4.rotate( modelMatrix, modelMatrix, now, vec3.fromValues(1, 0, 0) );
+    mat4.rotate( modelMatrix, modelMatrix, now, vec3.fromValues(0, 1, 0) );
 
     mat4.multiply(viewMatrix, viewMatrix, modelMatrix);
     mat4.multiply(modelViewProjectionMatrix, projectionMatrix, viewMatrix);

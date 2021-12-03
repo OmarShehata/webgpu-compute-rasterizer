@@ -2,7 +2,7 @@
   values: array<u32>;
 };
 
-struct Vertex { x: f32; y: f32; z: f32; r: f32; g: f32; b: f32; };
+struct Vertex { x: f32; y: f32; z: f32; };
 
 [[block]] struct VertexBuffer {
   values: array<Vertex>;
@@ -24,18 +24,15 @@ fn get_min_max(v1: vec2<f32>, v2: vec2<f32>, v3: vec2<f32>) -> vec4<f32> {
   var min_max = vec4<f32>();
 
   min_max.x = min(min(v1.x, v2.x), v3.x);
-  min_max.y = min(min(v1.x, v2.y), v3.y);
+  min_max.y = min(min(v1.y, v2.y), v3.y);
 
   min_max.z = max(max(v1.x, v2.x), v3.x);
-  min_max.w = max(max(v1.x, v2.y), v3.y);
+  min_max.w = max(max(v1.y, v2.y), v3.y);
 
   return min_max;
 }
 
 fn color_pixel(x: u32, y: u32, r: u32, g: u32, b: u32) {
-  //let x = nx * u32(uniforms.screenWidth);
-  //let y = ny * u32(uniforms.screenHeight);
-
   let pixelID = u32(x + y * u32(uniforms.screenWidth)) * 3u;
   
   outputColorBuffer.values[pixelID + 0u] = r;
@@ -57,7 +54,16 @@ fn barycentric(v1: vec2<f32>, v2: vec2<f32>, v3: vec2<f32>, p: vec2<f32>) -> vec
   return vec3<f32>(1.0 - (u.x+u.y)/u.z, u.y/u.z, u.x/u.z); 
 }
 
-fn draw_triangle(v1: vec2<f32>, v2: vec2<f32>, v3: vec2<f32>, color: vec3<f32>) {
+fn draw_line(v1: vec2<f32>, v2: vec2<f32>) {
+  let dist = i32(distance(v1, v2));
+  for (var i = 0; i < dist; i = i + 1) {
+    let x = u32(v1.x + f32(v2.x - v1.x) * (f32(i) / f32(dist)));
+    let y = u32(v1.y + f32(v2.y - v1.y) * (f32(i) / f32(dist)));
+    color_pixel(x, y, 255u, 255u, 255u);
+  }
+}
+
+fn draw_triangle(v1: vec2<f32>, v2: vec2<f32>, v3: vec2<f32>, v1World: Vertex, v2World: Vertex, v3World: Vertex) {
   let min_max = get_min_max(v1, v2, v3);
   let startX = u32(min_max.x);
   let startY = u32(min_max.y);
@@ -67,10 +73,15 @@ fn draw_triangle(v1: vec2<f32>, v2: vec2<f32>, v3: vec2<f32>, color: vec3<f32>) 
   for (var x: u32 = startX; x < endX; x = x + 1u) {
     for (var y: u32 = startY; y < endY; y = y + 1u) {
       let bc = barycentric(v1, v2, v3, vec2<f32>(f32(x), f32(y))); 
+
+      let R = 255.0;
+      let G = 0.0;
+      let B = 0.0;
+
       if (bc.x < 0.0 || bc.y < 0.0 || bc.z < 0.0) {
         continue;
       }
-      color_pixel(x, y, u32(color.r), u32(color.g), u32(color.b));
+      color_pixel(x, y, u32(R), u32(G), u32(B));
     }
   }
 }
@@ -115,10 +126,14 @@ fn main([[builtin(global_invocation_id)]] global_id : vec3<u32>) {
 
   // Discard if any points are offscreen 
   if (is_off_screen(v1) || is_off_screen(v2) || is_off_screen(v3)) {
-    //return;
+    return;
   }
 
-  draw_triangle(v1, v2, v3, vec3<f32>(v1World.r, v1World.g, v1World.b));  
+  draw_triangle(v1, v2, v3, v1World, v2World, v3World);  
+
+  draw_line(v1, v2);
+  draw_line(v2, v3);
+  draw_line(v1, v3);
 }
 
 [[stage(compute), workgroup_size(256, 1)]]
