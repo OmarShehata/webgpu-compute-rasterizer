@@ -62,7 +62,7 @@ fn draw_line(v1: vec3<f32>, v2: vec3<f32>) {
   for (var i = 0; i < dist; i = i + 1) {
     let x = u32(v1.x + f32(v2.x - v1.x) * (f32(i) / f32(dist)));
     let y = u32(v1.y + f32(v2.y - v1.y) * (f32(i) / f32(dist)));
-    color_pixel(x, y, 255u, 255u, 255u);
+    color_pixel(x, y, 0u, 0u, 0u);
   }
 }
 
@@ -73,11 +73,11 @@ fn draw_triangle(v1: vec3<f32>, v2: vec3<f32>, v3: vec3<f32>, v1World: Vertex, v
   let endX = u32(min_max.z);
   let endY = u32(min_max.w);
 
-  for (var x: u32 = startX; x < endX; x = x + 1u) {
-    for (var y: u32 = startY; y < endY; y = y + 1u) {
+  for (var x: u32 = startX; x <= endX; x = x + 1u) {
+    for (var y: u32 = startY; y <= endY; y = y + 1u) {
       let bc = barycentric(v1, v2, v3, vec2<f32>(f32(x), f32(y))); 
 
-      let R = v1.z * 18.0;
+      let R = (v1.z * 50.0) - 400.0;
       let G = R;
       let B = G;
 

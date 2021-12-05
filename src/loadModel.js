@@ -4,8 +4,8 @@ Get the list of vertices
 */
 
 import { WebIO } from '@gltf-transform/core';
-import modelUrl from '../tree.glb?url';
-//import modelUrl from '../Box.gltf?url';
+import modelUrl from '../models/suzanne.glb?url';
+//import modelUrl from '../models/box.gltf?url';
 
 export async function loadModel() {
 	const io = new WebIO({credentials: 'include'});
