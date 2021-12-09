@@ -32,7 +32,6 @@ async function init() {
 
   const { addComputePass, outputColorBuffer } = createComputePass(presentationSize, device, modelData);
   const { addFullscreenPass } = createFullscreenPass(presentationFormat, device, presentationSize, outputColorBuffer);
-  
 
   function draw() {
     const commandEncoder = device.createCommandEncoder();
@@ -154,7 +153,9 @@ function createComputePass(presentationSize, device, modelData) {
   const HEIGHT = presentationSize[1];
   const COLOR_CHANNELS = 3;
 
-  // Vertex buffer is XYZRGB
+  // modelData is expected to be an XYZ array.
+  // So if you wanted to render a single triangle instead,
+  // it look like this:
   // const verticesArray = new Float32Array([
   //   -1, 0, 0, 
   //   1, 0, 0, 
@@ -257,16 +258,15 @@ function createComputePass(presentationSize, device, modelData) {
     // Compute model view projection matrix
     const viewMatrix = mat4.create();
     const now = Date.now() / 1000;
-    mat4.translate(viewMatrix, viewMatrix, vec3.fromValues(5, 3, -12));
-
+    // Move the camera 
+    mat4.translate(viewMatrix, viewMatrix, vec3.fromValues(5, 3, -10));
     const modelViewProjectionMatrix = mat4.create();
-    
     const modelMatrix = mat4.create();
-    mat4.translate(modelMatrix, modelMatrix, vec3.fromValues(0, 0.0, 2));
-    mat4.rotate( modelMatrix, modelMatrix, (200) * (Math.PI / 180), vec3.fromValues(0, 1, 0) );
+    // Rotate model over time
+    mat4.rotate( modelMatrix, modelMatrix, now, vec3.fromValues(0, 1, 0) );
+    // Rotate model 90 degrees so that it is upright
     mat4.rotate( modelMatrix, modelMatrix, Math.PI/2, vec3.fromValues(1, 0, 0) );
-    
-
+    // Combine all into a modelViewProjection
     mat4.multiply(viewMatrix, viewMatrix, modelMatrix);
     mat4.multiply(modelViewProjectionMatrix, projectionMatrix, viewMatrix);
     
@@ -285,7 +285,7 @@ function createComputePass(presentationSize, device, modelData) {
     // Color pass. This performs the work of the vertex shader (projecting vertices)
     // followed by the work of the fragment shader (filling in fragments in screen pass)
     // all in a compute pass
-    totalTimesToRun = Math.ceil(vertexCount / 256);
+    totalTimesToRun = Math.ceil((vertexCount / 3) / 256);
     passEncoder.setPipeline(rasterizerPipeline);
     passEncoder.setBindGroup(0, bindGroup);
     passEncoder.dispatch(totalTimesToRun);

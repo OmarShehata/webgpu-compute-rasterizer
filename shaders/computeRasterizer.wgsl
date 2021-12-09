@@ -22,10 +22,8 @@ struct Vertex { x: f32; y: f32; z: f32; };
 ///////////////////////////////////////////////////// Helper functions
 fn get_min_max(v1: vec3<f32>, v2: vec3<f32>, v3: vec3<f32>) -> vec4<f32> {
   var min_max = vec4<f32>();
-
   min_max.x = min(min(v1.x, v2.x), v3.x);
   min_max.y = min(min(v1.y, v2.y), v3.y);
-
   min_max.z = max(max(v1.x, v2.x), v3.x);
   min_max.w = max(max(v1.y, v2.y), v3.y);
 
@@ -38,9 +36,6 @@ fn color_pixel(x: u32, y: u32, r: u32, g: u32, b: u32) {
   atomicMin(&outputColorBuffer.values[pixelID + 0u], r);
   atomicMin(&outputColorBuffer.values[pixelID + 1u], g);
   atomicMin(&outputColorBuffer.values[pixelID + 2u], b);
-  //outputColorBuffer.values[pixelID + 0u] = r;
-  //outputColorBuffer.values[pixelID + 1u] = g;
-  //outputColorBuffer.values[pixelID + 2u] = b;
 }
 
 // From: https://github.com/ssloy/tinyrenderer/wiki/Lesson-2:-Triangle-rasterization-and-back-face-culling
@@ -66,7 +61,7 @@ fn draw_line(v1: vec3<f32>, v2: vec3<f32>) {
   }
 }
 
-fn draw_triangle(v1: vec3<f32>, v2: vec3<f32>, v3: vec3<f32>, v1World: Vertex, v2World: Vertex, v3World: Vertex) {
+fn draw_triangle(v1: vec3<f32>, v2: vec3<f32>, v3: vec3<f32>) {
   let min_max = get_min_max(v1, v2, v3);
   let startX = u32(min_max.x);
   let startY = u32(min_max.y);
@@ -98,14 +93,6 @@ fn project(v: Vertex) -> vec3<f32> {
     return vec3<f32>(screenPos.x, screenPos.y, screenPos.w);
 }
 
-fn is_off_screen(v: vec2<f32>) -> bool {
-  if (v.x < 0.0 || v.x > uniforms.screenWidth || v.y < 0.0 || v.y > uniforms.screenHeight) {
-    return true;
-  }
-
-  return false;
-}
-
 ///////////////////////////////////////////////////// End Helper functions
 
 
@@ -123,14 +110,11 @@ fn main([[builtin(global_invocation_id)]] global_id : vec3<u32>) {
   let v3World = vertexBuffer.values[index + 2u];
 
   // Transform vertices by modelViewProjection
-  let v1 = project(v1World);
-  let v2 = project(v2World);
+  let v1 = project(v1World); 
+  let v2 = project(v2World); 
   let v3 = project(v3World);
 
-  // Discard if any points are offscreen 
-  
-
-  draw_triangle(v1, v2, v3, v1World, v2World, v3World);  
+  draw_triangle(v1, v2, v3);  
 
   //draw_line(v1, v2);
   //draw_line(v2, v3);
@@ -144,7 +128,4 @@ fn clear([[builtin(global_invocation_id)]] global_id : vec3<u32>) {
   atomicStore(&outputColorBuffer.values[index + 0u], 255u);
   atomicStore(&outputColorBuffer.values[index + 1u], 255u);
   atomicStore(&outputColorBuffer.values[index + 2u], 255u);
-  //outputColorBuffer.values[index + 0u] = 0u;
-  //outputColorBuffer.values[index + 1u] = 0u;
-  //outputColorBuffer.values[index + 2u] = 0u;
 }
