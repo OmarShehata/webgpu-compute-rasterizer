@@ -172,14 +172,14 @@ function createComputePass(presentationSize, device, modelData) {
   new Float32Array(verticesBuffer.getMappedRange()).set(verticesArray);
   verticesBuffer.unmap();
 
-  const outputColorBufferSize = Uint32Array.BYTES_PER_ELEMENT * (WIDTH * HEIGHT) * COLOR_CHANNELS;
+  const outputColorBufferSize = Uint32Array.BYTES_PER_ELEMENT * (WIDTH * HEIGHT) * COLOR_CHANNELS + 1;
   const outputColorBuffer = device.createBuffer({
     size: outputColorBufferSize,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC
   });
 
   const UBOBufferSize =
-    4 * 2  +// screen width & height
+    4 * 4  +
     4 * 16 + // 4x4 matrix
     8 // extra padding for alignment
 
@@ -263,6 +263,7 @@ function createComputePass(presentationSize, device, modelData) {
     
     const modelMatrix = mat4.create();
     mat4.translate(modelMatrix, modelMatrix, vec3.fromValues(0, 0.0, 2));
+    //mat4.rotate( modelMatrix, modelMatrix, now, vec3.fromValues(0, 1, 0) );
     mat4.rotate( modelMatrix, modelMatrix, (200) * (Math.PI / 180), vec3.fromValues(0, 1, 0) );
     mat4.rotate( modelMatrix, modelMatrix, Math.PI/2, vec3.fromValues(1, 0, 0) );
     
@@ -270,8 +271,11 @@ function createComputePass(presentationSize, device, modelData) {
     mat4.multiply(viewMatrix, viewMatrix, modelMatrix);
     mat4.multiply(modelViewProjectionMatrix, projectionMatrix, viewMatrix);
     
+    // Write the first value which is the number of pixels rendered
+    //device.queue.writeBuffer(outputColorBuffer, 0, new Uint32Array(0));
     // Write values to uniform buffer object
-    const uniformData = [WIDTH, HEIGHT, vertexCount];
+    const factor = (Math.sin(now ) * 0.5 + 0.5) * 65000 * 3.3;
+    const uniformData = [WIDTH, HEIGHT, vertexCount, factor];
     const uniformTypedArray = new Float32Array(uniformData);
     device.queue.writeBuffer(UBOBuffer, 0, uniformTypedArray.buffer);
     device.queue.writeBuffer(UBOBuffer, 16, modelViewProjectionMatrix.buffer);

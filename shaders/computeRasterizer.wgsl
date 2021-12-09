@@ -12,6 +12,7 @@ struct Vertex { x: f32; y: f32; z: f32; };
   screenWidth: f32;
   screenHeight: f32;
   vertexCount: f32;
+  percentage: f32;
   modelViewProjectionMatrix: mat4x4<f32>;
 };
 
@@ -66,12 +67,15 @@ fn draw_line(v1: vec3<f32>, v2: vec3<f32>) {
   }
 }
 
-fn draw_triangle(v1: vec3<f32>, v2: vec3<f32>, v3: vec3<f32>, v1World: Vertex, v2World: Vertex, v3World: Vertex) {
+fn draw_triangle(v1: vec3<f32>, v2: vec3<f32>, v3: vec3<f32>, v1World: Vertex, v2World: Vertex, v3World: Vertex) -> u32 {
   let min_max = get_min_max(v1, v2, v3);
   let startX = u32(min_max.x);
   let startY = u32(min_max.y);
   let endX = u32(min_max.z);
   let endY = u32(min_max.w);
+
+  let totalNumberOfPixelsToColor = (endX - startX) * (endY - startY);
+  var pixelsRendered = 0u;
 
   for (var x: u32 = startX; x <= endX; x = x + 1u) {
     for (var y: u32 = startY; y <= endY; y = y + 1u) {
@@ -82,11 +86,25 @@ fn draw_triangle(v1: vec3<f32>, v2: vec3<f32>, v3: vec3<f32>, v1World: Vertex, v
       let B = G;
 
       if (bc.x < 0.0 || bc.y < 0.0 || bc.z < 0.0) {
-        continue;
+        //continue;
       }
+
+      if (atomicLoad(&outputColorBuffer.values[0u]) >= u32(uniforms.percentage)) {
+        return pixelsRendered;
+      }
+
+      atomicAdd(&outputColorBuffer.values[0u], 1u);
+
+      pixelsRendered = pixelsRendered + 1u;
+      if (bc.x > f32(f32(1.0) * uniforms.percentage)) {
+        //break;
+      }
+
       color_pixel(x, y, u32(R), u32(G), u32(B));
     }
   }
+
+  return pixelsRendered;
 }
 
 // Given vertex in world coordinate, return it in screen coordinates
@@ -118,6 +136,11 @@ fn main([[builtin(global_invocation_id)]] global_id : vec3<u32>) {
     return;
   }
 
+
+  if (atomicLoad(&outputColorBuffer.values[0u]) >= u32(uniforms.percentage)) {
+    //return;
+  }
+
   let v1World = vertexBuffer.values[index + 0u];
   let v2World = vertexBuffer.values[index + 1u];
   let v3World = vertexBuffer.values[index + 2u];
@@ -126,11 +149,9 @@ fn main([[builtin(global_invocation_id)]] global_id : vec3<u32>) {
   let v1 = project(v1World);
   let v2 = project(v2World);
   let v3 = project(v3World);
-
-  // Discard if any points are offscreen 
   
-
-  draw_triangle(v1, v2, v3, v1World, v2World, v3World);  
+  let pixelsDrawn = draw_triangle(v1, v2, v3, v1World, v2World, v3World);
+  
 
   //draw_line(v1, v2);
   //draw_line(v2, v3);
@@ -139,7 +160,9 @@ fn main([[builtin(global_invocation_id)]] global_id : vec3<u32>) {
 
 [[stage(compute), workgroup_size(256, 1)]]
 fn clear([[builtin(global_invocation_id)]] global_id : vec3<u32>) {
-  let index = global_id.x * 3u;
+  let index = global_id.x * 3u + 1u;
+
+  atomicStore(&outputColorBuffer.values[0u], 0u);
 
   atomicStore(&outputColorBuffer.values[index + 0u], 255u);
   atomicStore(&outputColorBuffer.values[index + 1u], 255u);
