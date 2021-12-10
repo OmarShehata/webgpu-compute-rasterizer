@@ -2,6 +2,7 @@
 
 _This is a brief walkthrough of this project's code and implementation. See [README](README.md) for more about this project._
 
+* [Overall structure](#overall-structure)
 * [Compute shader](#compute-shader)
   + [Clear pass](#clear-pass)
   + [Pixel order](#pixel-order)
@@ -14,11 +15,13 @@ _This is a brief walkthrough of this project's code and implementation. See [REA
 * [Fullscreen quad pass](#fullscreen-quad-pass)
 * [Loading models](#loading-models)
 
-The entry point is in [src/main.js](src/main.js). This creates the WebGPU context, loads a glTF model, and sets up the compute & render passes.
+## Overall structure
+
+The entry point is in [src/main.js](src/main.js). This creates the WebGPU context, loads a glTF model (see `src/loadModel.js`), and sets up the compute & render passes.
 
 [shaders/computeRasterizer.wgsl](shaders/computeRasterizer.wgsl) contains 2 compute programs:
 
-* A rasterizer program that will run on every triangle to fill it in based on its distance to the camera.
+* A rasterizer program that will run on every triangle to fill it in with shading based on its distance to the camera.
 * A clear program that will run on every pixel, to fill the screen buffer with a solid color.
 
 [shaders/fullscreenQuad.wgsl](shaders/fullscreenQuad.wgsl) takes the pixel data generated from the compute pass(es) and copies it to the screen. 
@@ -28,7 +31,7 @@ The entry point is in [src/main.js](src/main.js). This creates the WebGPU contex
 This is where the bulk of the work happens. In `main.js`, the function `createComputePass` will return:
 
 * `outputColorBuffer`. This is a storage buffer big enough to contain 3 numbers for each pixel on the screen (RGB). Each color is stored as a `uint32`. This holds the output of the compute rasterizer and is given to the fullscreen quad render pass to draw it to the screen. 
-* A function - `addComputePass(commandEncoder)`. This is a function that can be called every frame and will push 2 commands:
+* `addComputePass(commandEncoder)`. This is a function that can be called every frame and will push 2 commands:
   * Clear - set all pixels in `outputColorBuffer` to a solid color, white.
   * Rasterizer pass - this runs for every triangle and is responsible for transforming the triangle from world space to screen space, filling it in, and shading it based on its distance to the camera, and ensuring triangles closer to the camera are drawn above triangles further away.
 
@@ -47,7 +50,7 @@ fn clear([[builtin(global_invocation_id)]] global_id : vec3<u32>) {
 }
 ```
 
-The goal here is to color every pixel as white. We dispatch this shader as many times as there are pixels, with the maximum work group size (256), and so we dispatch it like this:
+This colors every pixel as white. We dispatch this shader as many times as there are pixels, with the maximum work group size (256), and so we dispatch it like this in `main.js`:
 
 ```javascript
 let totalTimesToRun = Math.ceil((WIDTH * HEIGHT) / 256);
@@ -58,7 +61,7 @@ passEncoder.dispatch(totalTimesToRun);
 
 Note that in the shader, `index` may exceed the actual size of `outputColorBuffer` since we need to round up to the nearest 256 (the workgroup size we picked). It may be good to add a check here to return if the index exceeds the size, but it didn't seem to cause any issues for me. 
 
-We use `atomicStore` here because we defined `outputColorBuffer` as an array of `atomic<u32>` values. We need this for the rasterizer in the next section.
+We use `atomicStore` here because we defined `outputColorBuffer` as an array of `atomic<u32>` values. We need this to correctly render objects closer to the camera in front as described in the next section.
 
 _Note: I'm using the same bind group & bind group layout for both the clear pass & rasterizer pass, since they both need to access the same color buffer. But they do not both need to access the vertex buffer or the uniform buffer object. I'm not sure if it is better to have a separate bind group for each._
 
@@ -76,15 +79,15 @@ let G = f32(colorBuffer.data[index + 1u]) / 255.0;
 let B = f32(colorBuffer.data[index + 2u]) / 255.0;
 ```
 
-X and Y are integers giving you the number of pixels offset from the top left origin.
+X and Y are integers giving you the number of pixels offset from the top left origin. This is the logic used by `fullscreenQuad.wgsl` to put the pixels from color buffer to the screen.
 
 ### Model view projection matrix
 
-In order to transform from world space to screen space, we used a model view projection matrix, exactly how you would in a traditional graphics pipeline. 
+In order to transform from world space to screen space, we use a model view projection matrix, exactly how you would in a traditional graphics pipeline. 
 
 Here it is generated using the [glMatrix](https://glmatrix.net/) library.
 
-The camera position & model rotation over time is set up add the beginning of the `addComputePass` function and is combined into a `modelViewProjectionMatrix` which is sent to the shader as a 4x4 matrix of floats.
+We create a model view projection matrix that includes the camera position & model rotation at the beginning of the `addComputePass` function. It is sent to the shader as a 4x4 matrix of floats.
 
 ### Compute rasterizer pass
 
