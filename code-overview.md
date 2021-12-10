@@ -2,18 +2,7 @@
 
 _This is a brief walkthrough of this project's code and implementation. See [README](README.md) for more about this project._
 
-The entry point is in [src/main.js](src/main.js). This creates the WebGPU context, loads a glTF model, and sets up the compute & render passes.
-
-[shaders/computeRasterizer.wgsl](shaders/computeRasterizer.wgsl) contains 2 compute programs:
-
-* A rasterizer program that will run on every triangle to fill it in based on its distance to the camera.
-* A clear program that will run on every pixel, to fill the screen buffer with a solid color.
-
-[shaders/fullscreenQuad.wgsl](shaders/fullscreenQuad.wgsl) takes the pixel data generated from the compute pass(es) and copies it to the screen. 
-
-Table of contents:
-
-* [Compute setup](#compute-setup)
+* [Compute shader](#compute-shader)
   + [Clear pass](#clear-pass)
   + [Pixel order](#pixel-order)
   + [Model view projection matrix](#model-view-projection-matrix)
@@ -25,7 +14,16 @@ Table of contents:
 * [Fullscreen quad pass](#fullscreen-quad-pass)
 * [Loading models](#loading-models)
 
-## Compute setup
+The entry point is in [src/main.js](src/main.js). This creates the WebGPU context, loads a glTF model, and sets up the compute & render passes.
+
+[shaders/computeRasterizer.wgsl](shaders/computeRasterizer.wgsl) contains 2 compute programs:
+
+* A rasterizer program that will run on every triangle to fill it in based on its distance to the camera.
+* A clear program that will run on every pixel, to fill the screen buffer with a solid color.
+
+[shaders/fullscreenQuad.wgsl](shaders/fullscreenQuad.wgsl) takes the pixel data generated from the compute pass(es) and copies it to the screen. 
+
+## Compute shader
 
 This is where the bulk of the work happens. In `main.js`, the function `createComputePass` will return:
 

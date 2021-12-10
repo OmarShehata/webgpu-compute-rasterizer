@@ -6,7 +6,7 @@ I built this to create a simple template for exploring compute-based rendering t
 
 See:
 
-* [How to Build a Compute Rasterizer with WebGPU]() for a step by step guide on building your own version of this. 
+* [How to Build a Compute Rasterizer with WebGPU](how-to-build-a-compute-rasterizer.md) for a step by step guide on building your own version of this. 
 * Or [Code Overview](code-overview.md) for a brief walkthrough of the code & implementation. 
 
 ![](media/rotating-model.gif)
