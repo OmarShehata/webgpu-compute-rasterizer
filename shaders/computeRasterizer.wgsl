@@ -5,6 +5,7 @@
 [[block]] struct UBO {
   screenWidth: f32;
   screenHeight: f32;
+  modelViewProjectionMatrix: mat4x4<f32>;
 };
 
 struct Vertex { x: f32; y: f32; z: f32; };
@@ -86,7 +87,19 @@ fn draw_line(v1: vec3<f32>, v2: vec3<f32>) {
 }
 
 fn project(v: Vertex) -> vec3<f32> {
-  return vec3<f32>(v.x, v.y, v.z);
+  var screenPos = uniforms.modelViewProjectionMatrix * vec4<f32>(v.x, v.y, v.z, 1.0);
+  screenPos.x = (screenPos.x / screenPos.w) * uniforms.screenWidth;
+  screenPos.y = (screenPos.y / screenPos.w) * uniforms.screenHeight;
+
+  return vec3<f32>(screenPos.x, screenPos.y, screenPos.w);
+}
+
+fn is_off_screen(v: vec3<f32>) -> bool {
+  if (v.x < 0.0 || v.x > uniforms.screenWidth || v.y < 0.0 || v.y > uniforms.screenHeight) {
+    return true;
+  }
+
+  return false;
 }
 
 [[stage(compute), workgroup_size(256, 1)]]
@@ -97,9 +110,19 @@ fn main([[builtin(global_invocation_id)]] global_id : vec3<u32>) {
   let v2 = project(vertexBuffer.values[index + 1u]);
   let v3 = project(vertexBuffer.values[index + 2u]);
 
+  if (is_off_screen(v1) || is_off_screen(v2) || is_off_screen(v3)) {
+    return;
+  }
+
   draw_triangle(v1, v2, v3);
-  
-  //draw_line(v1, v2);
-  //draw_line(v2, v3);
-  //draw_line(v1, v3);
+}
+
+
+[[stage(compute), workgroup_size(256, 1)]]
+fn clear([[builtin(global_invocation_id)]] global_id : vec3<u32>) {
+  let index = global_id.x * 3u;
+
+  outputColorBuffer.values[index + 0u] = 0u;
+  outputColorBuffer.values[index + 1u] = 0u;
+  outputColorBuffer.values[index + 2u] = 0u;
 }

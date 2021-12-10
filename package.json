@@ -8,5 +8,9 @@
   },
   "devDependencies": {
     "vite": "^2.6.4"
+  },
+  "dependencies": {
+    "@gltf-transform/core": "^1.2.1",
+    "gl-matrix": "^3.4.3"
   }
 }

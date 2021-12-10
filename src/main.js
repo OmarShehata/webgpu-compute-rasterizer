@@ -1,3 +1,4 @@
+import { mat4, vec3, vec4 } from 'gl-matrix';
 import '../style.css'
 import fullscreenQuadWGSL from '../shaders/fullscreenQuad.wgsl?raw';
 import computeRasterizerWGSL from '../shaders/computeRasterizer.wgsl?raw';
@@ -149,9 +150,9 @@ function createComputePass(presentationSize, device) {
   const COLOR_CHANNELS = 3;
 
   const verticesArray = new Float32Array([ 
-    200, 200, 10, 
-    300, 200, 50,
-    200, 300, 50
+    -1, -1, 0, 
+    -1, 1, 0,
+    1, -1, 0
    ]);
   const NUMBERS_PER_VERTEX = 3;
   const vertexCount = verticesArray.length / NUMBERS_PER_VERTEX;
@@ -169,7 +170,10 @@ function createComputePass(presentationSize, device) {
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC
   });
 
-  const UBOBufferSize = 4 * 2;// screen width & height
+  const UBOBufferSize =
+    4 * 2  + // screen width & height
+    4 * 16 + // 4x4 matrix
+    8 // extra padding for alignment
   const UBOBuffer = device.createBuffer({
     size: UBOBufferSize,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -230,16 +234,43 @@ function createComputePass(presentationSize, device) {
     layout: device.createPipelineLayout({ bindGroupLayouts: [bindGroupLayout] }),
     compute: {  module: computeRasterizerModule, entryPoint: "main" }
   });
+  const clearPipeline = device.createComputePipeline({
+    layout: device.createPipelineLayout({ bindGroupLayouts: [bindGroupLayout] }),
+    compute: {  module: computeRasterizerModule, entryPoint: "clear" }
+  });
+
+  const aspect = WIDTH / HEIGHT;
+  const projectionMatrix = mat4.create();
+  mat4.perspective(projectionMatrix, (2 * Math.PI) / 5, aspect, 1, 100.0);
 
   const addComputePass = (commandEncoder) => {
+    // Compute model view projection matrix
+    const viewMatrix = mat4.create();
+    const now = Date.now() / 1000;
+    // Move the camera 
+    mat4.translate(viewMatrix, viewMatrix, vec3.fromValues(5, 5, -20));
+    const modelViewProjectionMatrix = mat4.create();
+    const modelMatrix = mat4.create();
+    // Rotate model over time
+    mat4.rotate( modelMatrix, modelMatrix, now, vec3.fromValues(0, 0, 1) );
+    // Combine all into a modelViewProjection
+    mat4.multiply(viewMatrix, viewMatrix, modelMatrix);
+    mat4.multiply(modelViewProjectionMatrix, projectionMatrix, viewMatrix);
+
     // Write values to uniform buffer object
     const uniformData = [WIDTH, HEIGHT];
     const uniformTypedArray = new Float32Array(uniformData);
     device.queue.writeBuffer(UBOBuffer, 0, uniformTypedArray.buffer);
+    device.queue.writeBuffer(UBOBuffer, 16, modelViewProjectionMatrix.buffer);
 
     const passEncoder = commandEncoder.beginComputePass();
-    const totalTimesToRun = Math.ceil((vertexCount / 3) / 256);
-    
+    let totalTimesToRun = Math.ceil((WIDTH * HEIGHT) / 256);
+    // Clear pass
+    passEncoder.setPipeline(clearPipeline);
+    passEncoder.setBindGroup(0, bindGroup);
+    passEncoder.dispatch(totalTimesToRun);
+    // Rasterizer pass
+    totalTimesToRun = Math.ceil((vertexCount / 3) / 256);
     passEncoder.setPipeline(rasterizerPipeline);
     passEncoder.setBindGroup(0, bindGroup);
     passEncoder.dispatch(totalTimesToRun);
