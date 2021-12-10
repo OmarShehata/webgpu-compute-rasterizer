@@ -148,6 +148,21 @@ function createComputePass(presentationSize, device) {
   const HEIGHT = presentationSize[1];
   const COLOR_CHANNELS = 3;
 
+  const verticesArray = new Float32Array([ 
+    200, 200, 10, 
+    300, 200, 50,
+    200, 300, 50
+   ]);
+  const NUMBERS_PER_VERTEX = 3;
+  const vertexCount = verticesArray.length / NUMBERS_PER_VERTEX;
+  const verticesBuffer = device.createBuffer({
+    size: verticesArray.byteLength,
+    usage: GPUBufferUsage.STORAGE,
+    mappedAtCreation: true,
+  });
+  new Float32Array(verticesBuffer.getMappedRange()).set(verticesArray);
+  verticesBuffer.unmap();
+
   const outputColorBufferSize = Uint32Array.BYTES_PER_ELEMENT * (WIDTH * HEIGHT) * COLOR_CHANNELS;
   const outputColorBuffer = device.createBuffer({
     size: outputColorBufferSize,
@@ -171,6 +186,13 @@ function createComputePass(presentationSize, device) {
       },
       {
         binding: 1,
+        visibility: GPUShaderStage.COMPUTE, 
+        buffer: {
+          type: "storage"
+        }
+      },
+      {
+        binding: 2,
         visibility: GPUShaderStage.COMPUTE,
         buffer: {
           type: "uniform",
@@ -189,7 +211,13 @@ function createComputePass(presentationSize, device) {
         }
       },
       {
-        binding: 1, 
+        binding: 1,
+        resource: {
+          buffer: verticesBuffer
+        }
+      },
+      {
+        binding: 2, 
         resource: {
           buffer: UBOBuffer
         }
@@ -210,7 +238,7 @@ function createComputePass(presentationSize, device) {
     device.queue.writeBuffer(UBOBuffer, 0, uniformTypedArray.buffer);
 
     const passEncoder = commandEncoder.beginComputePass();
-    const totalTimesToRun = Math.ceil((WIDTH * HEIGHT) / 256);
+    const totalTimesToRun = Math.ceil((vertexCount / 3) / 256);
     
     passEncoder.setPipeline(rasterizerPipeline);
     passEncoder.setBindGroup(0, bindGroup);
