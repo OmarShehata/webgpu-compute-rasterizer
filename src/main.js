@@ -2,6 +2,7 @@ import { mat4, vec3, vec4 } from 'gl-matrix';
 import '../style.css'
 import fullscreenQuadWGSL from '../shaders/fullscreenQuad.wgsl?raw';
 import computeRasterizerWGSL from '../shaders/computeRasterizer.wgsl?raw';
+import { loadModel } from './loadModel.js';
 
 init();
 
@@ -26,7 +27,9 @@ async function init() {
     size: presentationSize,
   });
 
-  const { addComputePass, outputColorBuffer } = createComputePass(presentationSize, device);
+  const verticesArray = await loadModel();
+
+  const { addComputePass, outputColorBuffer } = createComputePass(presentationSize, device, verticesArray);
   const { addFullscreenPass } = createFullscreenPass(presentationFormat, device, presentationSize, outputColorBuffer);
 
   function draw() {
@@ -144,16 +147,11 @@ function createFullscreenPass(presentationFormat, device, presentationSize, fina
   return { addFullscreenPass };
 }
 
-function createComputePass(presentationSize, device) {
+function createComputePass(presentationSize, device, verticesArray) {
   const WIDTH = presentationSize[0];
   const HEIGHT = presentationSize[1];
   const COLOR_CHANNELS = 3;
 
-  const verticesArray = new Float32Array([ 
-    -1, -1, 0, 
-    -1, 1, 0,
-    1, -1, 0
-   ]);
   const NUMBERS_PER_VERTEX = 3;
   const vertexCount = verticesArray.length / NUMBERS_PER_VERTEX;
   const verticesBuffer = device.createBuffer({
@@ -248,11 +246,13 @@ function createComputePass(presentationSize, device) {
     const viewMatrix = mat4.create();
     const now = Date.now() / 1000;
     // Move the camera 
-    mat4.translate(viewMatrix, viewMatrix, vec3.fromValues(5, 5, -20));
+    mat4.translate(viewMatrix, viewMatrix, vec3.fromValues(4, 3, -10));
     const modelViewProjectionMatrix = mat4.create();
     const modelMatrix = mat4.create();
     // Rotate model over time
-    mat4.rotate( modelMatrix, modelMatrix, now, vec3.fromValues(0, 0, 1) );
+    mat4.rotate( modelMatrix, modelMatrix, now, vec3.fromValues(0, 1, 0) );
+    // Rotate model 90 degrees so that it is upright
+    mat4.rotate( modelMatrix, modelMatrix, Math.PI/2, vec3.fromValues(1, 0, 0) );
     // Combine all into a modelViewProjection
     mat4.multiply(viewMatrix, viewMatrix, modelMatrix);
     mat4.multiply(modelViewProjectionMatrix, projectionMatrix, viewMatrix);

@@ -1,5 +1,5 @@
 [[block]] struct ColorBuffer {
-  values: array<u32>;
+  values: array<atomic<u32>>;
 };
 
 [[block]] struct UBO {
@@ -14,7 +14,7 @@ struct Vertex { x: f32; y: f32; z: f32; };
   values: array<Vertex>;
 };
 
-[[group(0), binding(0)]] var<storage, write> outputColorBuffer : ColorBuffer;
+[[group(0), binding(0)]] var<storage, read_write> outputColorBuffer : ColorBuffer;
 [[group(0), binding(1)]] var<storage, read> vertexBuffer : VertexBuffer;
 [[group(0), binding(2)]] var<uniform> uniforms : UBO;
 
@@ -45,9 +45,9 @@ fn get_min_max(v1: vec3<f32>, v2: vec3<f32>, v3: vec3<f32>) -> vec4<f32> {
 fn color_pixel(x: u32, y: u32, r: u32, g: u32, b: u32) {
   let pixelID = u32(x + y * u32(uniforms.screenWidth)) * 3u;
   
-  outputColorBuffer.values[pixelID + 0u] = r;
-  outputColorBuffer.values[pixelID + 1u] = g;
-  outputColorBuffer.values[pixelID + 2u] = b;
+  atomicMin(&outputColorBuffer.values[pixelID + 0u], r);
+  atomicMin(&outputColorBuffer.values[pixelID + 1u], g);
+  atomicMin(&outputColorBuffer.values[pixelID + 2u], b);
 }
 
 fn draw_triangle(v1: vec3<f32>, v2: vec3<f32>, v3: vec3<f32>) {
@@ -60,7 +60,7 @@ fn draw_triangle(v1: vec3<f32>, v2: vec3<f32>, v3: vec3<f32>) {
   for (var x: u32 = startX; x <= endX; x = x + 1u) {
     for (var y: u32 = startY; y <= endY; y = y + 1u) {
       let bc = barycentric(v1, v2, v3, vec2<f32>(f32(x), f32(y))); 
-      let color = bc.x * v1.z + bc.y * v2.z + bc.z * v3.z;
+      let color = (bc.x * v1.z + bc.y * v2.z + bc.z * v3.z) * 50.0 - 400.0;
 
       let R = color;
       let G = color;
@@ -122,7 +122,7 @@ fn main([[builtin(global_invocation_id)]] global_id : vec3<u32>) {
 fn clear([[builtin(global_invocation_id)]] global_id : vec3<u32>) {
   let index = global_id.x * 3u;
 
-  outputColorBuffer.values[index + 0u] = 0u;
-  outputColorBuffer.values[index + 1u] = 0u;
-  outputColorBuffer.values[index + 2u] = 0u;
+  atomicStore(&outputColorBuffer.values[index + 0u], 255u);
+  atomicStore(&outputColorBuffer.values[index + 1u], 255u);
+  atomicStore(&outputColorBuffer.values[index + 2u], 255u);
 }
