@@ -1,9 +1,6 @@
-import { mat4, vec3, vec4 } from 'gl-matrix';
-
 import '../style.css'
 import fullscreenQuadWGSL from '../shaders/fullscreenQuad.wgsl?raw';
 import computeRasterizerWGSL from '../shaders/computeRasterizer.wgsl?raw';
-import { loadModel } from './loadModel.js';
 
 init();
 
@@ -28,9 +25,7 @@ async function init() {
     size: presentationSize,
   });
 
-  const modelData = await loadModel();
-
-  const { addComputePass, outputColorBuffer } = createComputePass(presentationSize, device, modelData);
+  const { addComputePass, outputColorBuffer } = createComputePass(presentationSize, device);
   const { addFullscreenPass } = createFullscreenPass(presentationFormat, device, presentationSize, outputColorBuffer);
 
   function draw() {
@@ -132,7 +127,7 @@ function createFullscreenPass(presentationFormat, device, presentationSize, fina
      device.queue.writeBuffer(
       uniformBuffer,
       0,
-      new Uint32Array([presentationSize[0], presentationSize[1]]));
+      new Float32Array([presentationSize[0], presentationSize[1]]));
 
      renderPassDescriptor.colorAttachments[0].view = context
       .getCurrentTexture()
@@ -148,30 +143,10 @@ function createFullscreenPass(presentationFormat, device, presentationSize, fina
   return { addFullscreenPass };
 }
 
-function createComputePass(presentationSize, device, modelData) {
+function createComputePass(presentationSize, device) {
   const WIDTH = presentationSize[0];
   const HEIGHT = presentationSize[1];
   const COLOR_CHANNELS = 3;
-
-  // modelData is expected to be an XYZ array.
-  // So if you wanted to render a single triangle instead,
-  // it look like this:
-  // const verticesArray = new Float32Array([
-  //   -1, 0, 0, 
-  //   1, 0, 0, 
-  //   0, -1, 0
-  //  ]);
-
-  let verticesArray = modelData;
-  const NUMBERS_PER_VERTEX = 3;
-  const vertexCount = verticesArray.length / NUMBERS_PER_VERTEX;
-  const verticesBuffer = device.createBuffer({
-    size: verticesArray.byteLength,
-    usage: GPUBufferUsage.STORAGE,
-    mappedAtCreation: true,
-  });
-  new Float32Array(verticesBuffer.getMappedRange()).set(verticesArray);
-  verticesBuffer.unmap();
 
   const outputColorBufferSize = Uint32Array.BYTES_PER_ELEMENT * (WIDTH * HEIGHT) * COLOR_CHANNELS;
   const outputColorBuffer = device.createBuffer({
@@ -179,11 +154,7 @@ function createComputePass(presentationSize, device, modelData) {
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC
   });
 
-  const UBOBufferSize =
-    4 * 2  +// screen width & height
-    4 * 16 + // 4x4 matrix
-    8 // extra padding for alignment
-
+  const UBOBufferSize = 4 * 2;// screen width & height
   const UBOBuffer = device.createBuffer({
     size: UBOBufferSize,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -200,13 +171,6 @@ function createComputePass(presentationSize, device, modelData) {
       },
       {
         binding: 1,
-        visibility: GPUShaderStage.COMPUTE, 
-        buffer: {
-          type: "storage"
-        }
-      },
-      {
-        binding: 2,
         visibility: GPUShaderStage.COMPUTE,
         buffer: {
           type: "uniform",
@@ -225,13 +189,7 @@ function createComputePass(presentationSize, device, modelData) {
         }
       },
       {
-        binding: 1,
-        resource: {
-          buffer: verticesBuffer
-        }
-      },
-      {
-        binding: 2, 
+        binding: 1, 
         resource: {
           buffer: UBOBuffer
         }
@@ -245,47 +203,15 @@ function createComputePass(presentationSize, device, modelData) {
     compute: {  module: computeRasterizerModule, entryPoint: "main" }
   });
 
-  const clearPipeline = device.createComputePipeline({
-    layout: device.createPipelineLayout({ bindGroupLayouts: [bindGroupLayout] }),
-    compute: {  module: computeRasterizerModule, entryPoint: "clear" }
-  });
-
-  const aspect = WIDTH / HEIGHT;
-  const projectionMatrix = mat4.create();
-  mat4.perspective(projectionMatrix, (2 * Math.PI) / 5, aspect, 1, 100.0);
-
   const addComputePass = (commandEncoder) => {
-    // Compute model view projection matrix
-    const viewMatrix = mat4.create();
-    const now = Date.now() / 1000;
-    // Move the camera 
-    mat4.translate(viewMatrix, viewMatrix, vec3.fromValues(5, 3, -10));
-    const modelViewProjectionMatrix = mat4.create();
-    const modelMatrix = mat4.create();
-    // Rotate model over time
-    mat4.rotate( modelMatrix, modelMatrix, now, vec3.fromValues(0, 1, 0) );
-    // Rotate model 90 degrees so that it is upright
-    mat4.rotate( modelMatrix, modelMatrix, Math.PI/2, vec3.fromValues(1, 0, 0) );
-    // Combine all into a modelViewProjection
-    mat4.multiply(viewMatrix, viewMatrix, modelMatrix);
-    mat4.multiply(modelViewProjectionMatrix, projectionMatrix, viewMatrix);
-    
     // Write values to uniform buffer object
-    const uniformData = [WIDTH, HEIGHT, vertexCount];
+    const uniformData = [WIDTH, HEIGHT];
     const uniformTypedArray = new Float32Array(uniformData);
     device.queue.writeBuffer(UBOBuffer, 0, uniformTypedArray.buffer);
-    device.queue.writeBuffer(UBOBuffer, 16, modelViewProjectionMatrix.buffer);
 
     const passEncoder = commandEncoder.beginComputePass();
-    let totalTimesToRun = Math.ceil((WIDTH * HEIGHT) / 256);
-    // Clear pass
-    passEncoder.setPipeline(clearPipeline);
-    passEncoder.setBindGroup(0, bindGroup);
-    passEncoder.dispatch(totalTimesToRun);
-    // Color pass. This performs the work of the vertex shader (projecting vertices)
-    // followed by the work of the fragment shader (filling in fragments in screen pass)
-    // all in a compute pass
-    totalTimesToRun = Math.ceil((vertexCount / 3) / 256);
+    const totalTimesToRun = Math.ceil((WIDTH * HEIGHT) / 256);
+    
     passEncoder.setPipeline(rasterizerPipeline);
     passEncoder.setBindGroup(0, bindGroup);
     passEncoder.dispatch(totalTimesToRun);

@@ -2,13 +2,6 @@
 # yarn lockfile v1
 
 
-"@gltf-transform/core@^1.2.1":
-  version "1.2.1"
-  resolved "https://registry.yarnpkg.com/@gltf-transform/core/-/core-1.2.1.tgz#0e00141d16fee1587a4a4da93645b7305f42b7d4"
-  integrity sha512-KbAzBbcW31RcaAtMKTQkTczkloNsj/x7KOT7sDpTsJpoEcp/3irdlDy9drwLF3gtCXPQPKox54cksNJDSacsUQ==
-  dependencies:
-    gl-matrix "~3.4.3"
-
 esbuild-android-arm64@0.13.15:
   version "0.13.15"
   resolved "https://registry.yarnpkg.com/esbuild-android-arm64/-/esbuild-android-arm64-0.13.15.tgz#3fc3ff0bab76fe35dd237476b5d2b32bb20a3d44"
@@ -126,11 +119,6 @@ function-bind@^1.1.1:
   version "1.1.1"
   resolved "https://registry.yarnpkg.com/function-bind/-/function-bind-1.1.1.tgz#a56899d3ea3c9bab874bb9773b7c5ede92f4895d"
   integrity sha512-yIovAzMX49sF8Yl58fSCWJ5svSLuaibPxXQJFLmBObTuCr0Mf1KiPopGM9NiFjiYBCbfaa2Fh6breQ6ANVTI0A==
-
-gl-matrix@^3.4.3, gl-matrix@~3.4.3:
-  version "3.4.3"
-  resolved "https://registry.yarnpkg.com/gl-matrix/-/gl-matrix-3.4.3.tgz#fc1191e8320009fd4d20e9339595c6041ddc22c9"
-  integrity sha512-wcCp8vu8FT22BnvKVPjXa/ICBWRq/zjFfdofZy1WSpQZpphblv12/bOQLBC1rMM7SGOFS9ltVmKOHil5+Ml7gA==
 
 has@^1.0.3:
   version "1.0.3"
