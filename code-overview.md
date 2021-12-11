@@ -24,7 +24,7 @@ The entry point is in [src/main.js](src/main.js). This creates the WebGPU contex
 * A rasterizer program that will run on every triangle to fill it in with shading based on its distance to the camera.
 * A clear program that will run on every pixel, to fill the screen buffer with a solid color.
 
-[shaders/fullscreenQuad.wgsl](shaders/fullscreenQuad.wgsl) takes the pixel data generated from the compute pass(es) and copies it to the screen. 
+[shaders/fullscreenQuad.wgsl](shaders/fullscreenQuad.wgsl) takes the pixel data generated from the compute pass and copies it to the screen. 
 
 ## Compute shader
 
@@ -33,7 +33,7 @@ This is where the bulk of the work happens. In `main.js`, the function `createCo
 * `outputColorBuffer`. This is a storage buffer big enough to contain 3 numbers for each pixel on the screen (RGB). Each color is stored as a `uint32`. This holds the output of the compute rasterizer and is given to the fullscreen quad render pass to draw it to the screen. 
 * `addComputePass(commandEncoder)`. This is a function that can be called every frame and will push 2 commands:
   * Clear - set all pixels in `outputColorBuffer` to a solid color, white.
-  * Rasterizer pass - this runs for every triangle and is responsible for transforming the triangle from world space to screen space, filling it in, and shading it based on its distance to the camera, and ensuring triangles closer to the camera are drawn above triangles further away.
+  * Rasterizer pass - this runs for every triangle and is responsible for transforming the triangle from world space to screen space, filling it in, shading it based on its distance to the camera, and ensuring triangles closer to the camera are drawn above triangles further away.
 
 ### Clear pass
 
@@ -61,15 +61,13 @@ passEncoder.dispatch(totalTimesToRun);
 
 Note that in the shader, `index` may exceed the actual size of `outputColorBuffer` since we need to round up to the nearest 256 (the workgroup size we picked). It may be good to add a check here to return if the index exceeds the size, but it didn't seem to cause any issues for me. 
 
-We use `atomicStore` here because we defined `outputColorBuffer` as an array of `atomic<u32>` values. We need this to correctly render objects closer to the camera in front as described in the next section.
+We use `atomicStore` here because we defined `outputColorBuffer` as an array of `atomic<u32>` values. We need this to correctly render objects closer to the camera in front as described in the rasterizer section.
 
 _Note: I'm using the same bind group & bind group layout for both the clear pass & rasterizer pass, since they both need to access the same color buffer. But they do not both need to access the vertex buffer or the uniform buffer object. I'm not sure if it is better to have a separate bind group for each._
 
 ### Pixel order
 
-At this point we have made no choice in what order we are storing the pixels (rows vs columns). We'll need to make this choice when we have a screen space X/Y and we want to read/write it from the buffer. 
-
-In this application I've chosen to store pixels as rows. So given an X,Y, you can get the correct pixel with the following code. 
+I chose to store the pixels in the buffer as a list of rows. So given an X,Y, you can get the correct pixel with the following code. 
 
 ```wgsl
 let index = (X + Y * screenWidth) * 3u;
@@ -79,15 +77,11 @@ let G = f32(colorBuffer.data[index + 1u]) / 255.0;
 let B = f32(colorBuffer.data[index + 2u]) / 255.0;
 ```
 
-X and Y are integers giving you the number of pixels offset from the top left origin. This is the logic used by `fullscreenQuad.wgsl` to put the pixels from color buffer to the screen.
+X and Y are integers giving you the number of pixels offset from the top left origin. This is the logic used by `fullscreenQuad.wgsl` to put the pixels from the color buffer onto the screen.
 
 ### Model view projection matrix
 
-In order to transform from world space to screen space, we use a model view projection matrix, exactly how you would in a traditional graphics pipeline. 
-
-Here it is generated using the [glMatrix](https://glmatrix.net/) library.
-
-We create a model view projection matrix that includes the camera position & model rotation at the beginning of the `addComputePass` function. It is sent to the shader as a 4x4 matrix of floats.
+We use a model view projection matrix generated using the [glMatrix](https://glmatrix.net/) library. It's created at the beginning of the `addComputePass` function, and sent to the shader as a 4x4 matrix of floats. This approach was taken from the [WebGPU rotating cubes example](https://austin-eng.com/webgpu-samples/samples/rotatingCube).
 
 ### Compute rasterizer pass
 
@@ -105,7 +99,7 @@ const verticesArray = new Float32Array([
 
 And the compute shader would run 1 time.
 
-This compute rasterizer does the following:
+The compute rasterizer does the following:
 
 1. Gets the next 3 vertices in world position
 2. Projects them to screen position by multiplying by the model view projection matrix
@@ -135,11 +129,11 @@ Try commenting out this check inside the `draw_triangle` function to skip this c
 
 ```wgsl
 if (bc.x < 0.0 || bc.y < 0.0 || bc.z < 0.0) {
-	continue;
+  continue;
 }
 ```
 
-![](media/rotating-model-square.gif)
+![](https://user-images.githubusercontent.com/1711126/145679816-5cd5ed42-16e4-4a36-a6e1-0c578aafe016.png)
 
 #### Shading by depth
 
@@ -156,14 +150,20 @@ return vec3<f32>(screenPos.x, screenPos.y, screenPos.w);
 This depth is then chosen as the color inside the `draw_triangle` function:
 
 ```wgsl
-let R = (v1.z * 50.0) - 400.0;
-let G = R;
-let B = G;
+let color = (bc.x * v1.z + bc.y * v2.z + bc.z * v3.z) * 50.0 - 400.0;
+
+let R = color; let G = color; let B = color;
 ```
 
-Note that this only picks the depth of one point and chooses that as the color of the whole triangle. A better implementation would interpolate the depth across the triangle using the computed barycentric coordinates.
+This interpolates the depth value across the 3 vertices of the triangle. To get a flat shading look, you can instead just pick one:
 
-The multiplication by 50 and offset by 400 here are just arbitrary numbers to scale the depth to look nice for this particular model at this particular distance from the camera.
+```wgsl
+let color = v1.z * 50.0 - 400.0;
+```
+
+![flat-smooth-shading](https://user-images.githubusercontent.com/1711126/145679726-f5fe2d2f-fbab-4e2f-92fe-e032ef3af2a2.png)
+
+_Note: The multiplication by 50 and offset by 400 here are just arbitrary numbers to scale the depth to look nice for this particular model at this particular distance from the camera._
 
 #### Render pixels closest to the camera
 
