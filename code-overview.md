@@ -3,6 +3,7 @@
 _This is a brief walkthrough of this project's code and implementation. See [README](README.md) for more about this project._
 
 * [Overall structure](#overall-structure)
+* [Local setup](#local-setup)
 * [Compute shader](#compute-shader)
   + [Clear pass](#clear-pass)
   + [Pixel order](#pixel-order)
@@ -25,6 +26,10 @@ The entry point is in [src/main.js](src/main.js). This creates the WebGPU contex
 * A clear program that will run on every pixel, to fill the screen buffer with a solid color.
 
 [shaders/fullscreenQuad.wgsl](shaders/fullscreenQuad.wgsl) takes the pixel data generated from the compute pass and copies it to the screen. 
+
+## Local setup
+
+To run the code locally, run `npm install`, then `npm run dev`.
 
 ## Compute shader
 
