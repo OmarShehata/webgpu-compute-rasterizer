@@ -18,3 +18,7 @@ See:
 Run `npm install` and `npm run dev`. Then open `localhost:3000`.
 
 You must use a browser that supports WebGPU. See the [setup instructions in this article](https://alain.xyz/blog/raw-webgpu#setup).
+
+## Rust port
+
+There is a Rust port of this article here: https://github.com/pudnax/compaster. Created by [@pudnax](https://github.com/pudnax).
