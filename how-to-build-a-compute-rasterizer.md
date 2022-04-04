@@ -82,7 +82,7 @@ const { addFullscreenPass } = createFullscreenPass(presentationFormat, device, p
   * It's declared in the constructor for the fragment shader as shown below.
 
 ```wgsl
-fn frag_main([[builtin(position)]] coord: vec4<f32>)
+fn frag_main(@builtin(position) coord: vec4<f32>)
 ```
 
 * Given the X and Y, we need to figure out what index to pull from our color buffer, which is just an array of RGB 32 bit unsigned values. I decided to store the pixels as rows, so the computation to get the index is as follows:
@@ -157,7 +157,7 @@ The vertex data is declared as a `Float32Array`. We create a storage buffer out 
   binding: 1,// I pushed the uniform buffer to "2", and made the vertices buffer "1" here. But it doesn't matter as long as this matches the number used in the shader code.
   visibility: GPUShaderStage.COMPUTE, 
   buffer: {
-    type: "storage"
+    type: "read-only-storage"
   }
 },
 ```
@@ -182,17 +182,17 @@ const totalTimesToRun = Math.ceil((vertexCount / 3) / 256);
 5. Add a binding for the new vertex buffer to `shaders/computeRasterizer.wgsl`:
 
 ```wgsl
-[[group(0), binding(1)]] var<storage, read> vertexBuffer : VertexBuffer;
+@group(0) binding(1) var<storage, read> vertexBuffer : VertexBuffer;
 // Make sure to update uniforms to binding(2)
 ```
 
 6. Declare the `VertexBuffer` type at the top of the file:
 
 ```wgsl
-struct Vertex { x: f32; y: f32; z: f32; };
+struct Vertex { x: f32, y: f32, z: f32, };
 
-[[block]] struct VertexBuffer {
-  values: array<Vertex>;
+struct VertexBuffer {
+  values: array<Vertex>,
 };
 ```
 
@@ -211,8 +211,8 @@ fn color_pixel(x: u32, y: u32, r: u32, g: u32, b: u32) {
 8. Update the `main` function to get 3 vertices, and draw each of them. The full main function should look as follows:
 
 ```wgsl
-[[stage(compute), workgroup_size(256, 1)]]
-fn main([[builtin(global_invocation_id)]] global_id : vec3<u32>) {
+@stage(compute) workgroup_size(256, 1)
+fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
   let index = global_id.x * 3u;
 
   let v1 = vertexBuffer.values[index + 0u];
@@ -433,10 +433,10 @@ We write it at index `16` again because of the memory alignment/padding. The wid
 6. In `computeRasterizer.wgsl`, add the matrix to the uniforms:
 
 ```wgsl
-[[block]] struct UBO {
-  screenWidth: f32;
-  screenHeight: f32;
-  modelViewProjectionMatrix: mat4x4<f32>;// <---- add this line
+struct UBO {
+  screenWidth: f32,
+  screenHeight: f32,
+  modelViewProjectionMatrix: mat4x4<f32>,// <---- add this line
 };
 ```
 
@@ -480,8 +480,8 @@ You should see the triangle rotating, but since there is no clear pass, it will 
 10. Add a clear pass by inserting a new entry point function into the same `computeRasterizer.wgsl` file:
 
 ```wgsl
-[[stage(compute), workgroup_size(256, 1)]]
-fn clear([[builtin(global_invocation_id)]] global_id : vec3<u32>) {
+@stage(compute) @workgroup_size(256, 1)
+fn clear(@builtin(global_invocation_id) global_id : vec3<u32>) {
   let index = global_id.x * 3u;
 
   outputColorBuffer.values[index + 0u] = 0u;
@@ -594,8 +594,8 @@ Instead of adding a second storage buffer, to keep this simple, we'll just use t
 7. Change the type of the `ColorBuffer` struct to be an array of atomic values:
 
 ```wgsl
-[[block]] struct ColorBuffer {
-  values: array<atomic<u32>>;
+struct ColorBuffer {
+  values: array<atomic<u32>>,
 };
 ```
 
@@ -614,7 +614,7 @@ fn color_pixel(x: u32, y: u32, r: u32, g: u32, b: u32) {
 9. Since we are now reading & writing to the color buffer at the same time, we need to update how we declared the color buffer to be `var<storage, write>` instead of `var<storage, read_write>`:
 
 ```wgsl
-[[group(0), binding(0)]] var<storage, read_write> outputColorBuffer : ColorBuffer;
+@group(0) binding(0) var<storage, read_write> outputColorBuffer : ColorBuffer;
 ```
 
 10. We need to update anywhere else we are setting values in `outputColorBuffer` to use atomics. So change the clear pass to:

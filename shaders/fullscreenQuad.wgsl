@@ -1,21 +1,21 @@
-[[block]] struct ColorData {
-  data : array<u32>;
+struct ColorData {
+  data : array<u32>,
 };
 
-[[block]] struct Uniforms {
-  screenWidth: f32;
-  screenHeight: f32;
+struct Uniforms {
+  screenWidth: f32,
+  screenHeight: f32,
 };
 
-[[group(0), binding(0)]] var<uniform> uniforms : Uniforms;
-[[group(0), binding(1)]] var<storage, read> finalColorBuffer : ColorData;
+@group(0) @binding(0) var<uniform> uniforms : Uniforms;
+@group(0) @binding(1) var<storage, read> finalColorBuffer : ColorData;
 
 struct VertexOutput {
-  [[builtin(position)]] Position : vec4<f32>;
+  @builtin(position) Position : vec4<f32>,
 };
 
-[[stage(vertex)]]
-fn vert_main([[builtin(vertex_index)]] VertexIndex : u32) -> VertexOutput {
+@stage(vertex)
+fn vert_main(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
   var pos = array<vec2<f32>, 6>(
       vec2<f32>( 1.0,  1.0),
       vec2<f32>( 1.0, -1.0),
@@ -29,8 +29,8 @@ fn vert_main([[builtin(vertex_index)]] VertexIndex : u32) -> VertexOutput {
   return output;
 }
 
-[[stage(fragment)]]
-fn frag_main([[builtin(position)]] coord: vec4<f32>) -> [[location(0)]] vec4<f32> {
+@stage(fragment)
+fn frag_main(@builtin(position) coord: vec4<f32>) -> @location(0) vec4<f32> {
   let X = floor(coord.x);
   let Y = floor(coord.y);
   let index = u32(X + Y * uniforms.screenWidth) * 3u;

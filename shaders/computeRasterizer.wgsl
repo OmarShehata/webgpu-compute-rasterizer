@@ -1,22 +1,22 @@
-[[block]] struct ColorBuffer {
-  values: array<atomic<u32>>;
+struct ColorBuffer {
+  values: array<atomic<u32>>,
 };
 
-[[block]] struct UBO {
-  screenWidth: f32;
-  screenHeight: f32;
-  modelViewProjectionMatrix: mat4x4<f32>;
+struct UBO {
+  screenWidth: f32,
+  screenHeight: f32,
+  modelViewProjectionMatrix: mat4x4<f32>,
 };
 
-struct Vertex { x: f32; y: f32; z: f32; };
+struct Vertex { x: f32, y: f32, z: f32, };
 
-[[block]] struct VertexBuffer {
-  values: array<Vertex>;
+struct VertexBuffer {
+  values: array<Vertex>,
 };
 
-[[group(0), binding(0)]] var<storage, read_write> outputColorBuffer : ColorBuffer;
-[[group(0), binding(1)]] var<storage, read> vertexBuffer : VertexBuffer;
-[[group(0), binding(2)]] var<uniform> uniforms : UBO;
+@group(0) @binding(0) var<storage, read_write> outputColorBuffer : ColorBuffer;
+@group(0) @binding(1) var<storage, read> vertexBuffer : VertexBuffer;
+@group(0) @binding(2) var<uniform> uniforms : UBO;
 
 // From: https://github.com/ssloy/tinyrenderer/wiki/Lesson-2:-Triangle-rasterization-and-back-face-culling
 fn barycentric(v1: vec3<f32>, v2: vec3<f32>, v3: vec3<f32>, p: vec2<f32>) -> vec3<f32> {
@@ -102,8 +102,8 @@ fn is_off_screen(v: vec3<f32>) -> bool {
   return false;
 }
 
-[[stage(compute), workgroup_size(256, 1)]]
-fn main([[builtin(global_invocation_id)]] global_id : vec3<u32>) {
+@stage(compute) @workgroup_size(256, 1)
+fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
   let index = global_id.x * 3u;
 
   let v1 = project(vertexBuffer.values[index + 0u]);
@@ -118,8 +118,8 @@ fn main([[builtin(global_invocation_id)]] global_id : vec3<u32>) {
 }
 
 
-[[stage(compute), workgroup_size(256, 1)]]
-fn clear([[builtin(global_invocation_id)]] global_id : vec3<u32>) {
+@stage(compute) @workgroup_size(256, 1)
+fn clear(@builtin(global_invocation_id) global_id : vec3<u32>) {
   let index = global_id.x * 3u;
 
   atomicStore(&outputColorBuffer.values[index + 0u], 255u);

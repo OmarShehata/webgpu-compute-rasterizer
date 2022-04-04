@@ -60,7 +60,7 @@ function createFullscreenPass(presentationFormat, device, presentationSize, fina
         binding: 1,// the color buffer
         visibility: GPUShaderStage.FRAGMENT,
         buffer: {
-          type: "storage"
+          type: "read-only-storage"
         }
       }
     ]
@@ -121,7 +121,8 @@ function createFullscreenPass(presentationFormat, device, presentationSize, fina
       {
         view: undefined, // Assigned later
 
-        loadValue: { r: 1.0, g: 1.0, b: 1.0, a: 1.0 },
+        clearValue: { r: 1.0, g: 1.0, b: 1.0, a: 1.0 },
+        loadOp: 'clear',
         storeOp: 'store',
       },
     ]
@@ -141,7 +142,7 @@ function createFullscreenPass(presentationFormat, device, presentationSize, fina
       passEncoder.setPipeline(fullscreenQuadPipeline);
       passEncoder.setBindGroup(0, fullscreenQuadBindGroup);
       passEncoder.draw(6, 1, 0, 0);
-      passEncoder.endPass();
+      passEncoder.end();
   }
 
   return { addFullscreenPass };
@@ -190,7 +191,7 @@ function createComputePass(presentationSize, device, verticesArray) {
         binding: 1,
         visibility: GPUShaderStage.COMPUTE, 
         buffer: {
-          type: "storage"
+          type: "read-only-storage"
         }
       },
       {
@@ -275,7 +276,7 @@ function createComputePass(presentationSize, device, verticesArray) {
     passEncoder.setBindGroup(0, bindGroup);
     passEncoder.dispatch(totalTimesToRun);
 
-    passEncoder.endPass();
+    passEncoder.end();
   }
 
   return { addComputePass, outputColorBuffer };
