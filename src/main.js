@@ -20,11 +20,11 @@ async function init() {
     Math.floor(canvas.clientHeight * devicePixelRatio),
   ];
 
-  const presentationFormat = context.getPreferredFormat(adapter);
+  const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
   context.configure({
     device,
     format: presentationFormat,
-    size: presentationSize,
+    alphaMode: "opaque"
   });
 
   const verticesArray = await loadModel();
@@ -269,12 +269,12 @@ function createComputePass(presentationSize, device, verticesArray) {
     // Clear pass
     passEncoder.setPipeline(clearPipeline);
     passEncoder.setBindGroup(0, bindGroup);
-    passEncoder.dispatch(totalTimesToRun);
+    passEncoder.dispatchWorkgroups(totalTimesToRun);
     // Rasterizer pass
     totalTimesToRun = Math.ceil((vertexCount / 3) / 256);
     passEncoder.setPipeline(rasterizerPipeline);
     passEncoder.setBindGroup(0, bindGroup);
-    passEncoder.dispatch(totalTimesToRun);
+    passEncoder.dispatchWorkgroups(totalTimesToRun);
 
     passEncoder.end();
   }

@@ -14,7 +14,7 @@ struct VertexOutput {
   @builtin(position) Position : vec4<f32>,
 };
 
-@stage(vertex)
+@vertex
 fn vert_main(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
   var pos = array<vec2<f32>, 6>(
       vec2<f32>( 1.0,  1.0),
@@ -29,7 +29,7 @@ fn vert_main(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
   return output;
 }
 
-@stage(fragment)
+@fragment
 fn frag_main(@builtin(position) coord: vec4<f32>) -> @location(0) vec4<f32> {
   let X = floor(coord.x);
   let Y = floor(coord.y);
