@@ -45,8 +45,8 @@ This is where the bulk of the work happens. In `main.js`, the function `createCo
 This is the `clear` function in [shaders/computeRasterizer.wgsl](shaders/computeRasterizer.wgsl). Below is the entire function.
 
 ```wgsl
-[[stage(compute), workgroup_size(256, 1)]]
-fn clear([[builtin(global_invocation_id)]] global_id : vec3<u32>) {
+@compute @workgroup_size(256, 1)
+fn clear(@builtin(global_invocation_id) global_id : vec3<u32>) {
   let index = global_id.x * 3u;
 
   atomicStore(&outputColorBuffer.values[index + 0u], 255u);
@@ -175,8 +175,8 @@ _Note: The multiplication by 50 and offset by 400 here are just arbitrary number
 This is the reason the color buffer is created as an array of atomics:
 
 ```wgsl
-[[block]] struct ColorBuffer {
-  values: array<atomic<u32>>;
+struct ColorBuffer {
+  values: array<atomic<u32>>,
 };
 ```
 

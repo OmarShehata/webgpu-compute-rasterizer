@@ -82,7 +82,7 @@ const { addFullscreenPass } = createFullscreenPass(presentationFormat, device, p
   * It's declared in the constructor for the fragment shader as shown below.
 
 ```wgsl
-fn frag_main(@builtin(position) coord: vec4<f32>)
+fn frag_main(@builtin(position) coord: vec4<f32>) -> @location(0) vec4<f32> {
 ```
 
 * Given the X and Y, we need to figure out what index to pull from our color buffer, which is just an array of RGB 32 bit unsigned values. I decided to store the pixels as rows, so the computation to get the index is as follows:
@@ -211,7 +211,7 @@ fn color_pixel(x: u32, y: u32, r: u32, g: u32, b: u32) {
 8. Update the `main` function to get 3 vertices, and draw each of them. The full main function should look as follows:
 
 ```wgsl
-@stage(compute) workgroup_size(256, 1)
+@compute @workgroup_size(256, 1)
 fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
   let index = global_id.x * 3u;
 
@@ -480,7 +480,7 @@ You should see the triangle rotating, but since there is no clear pass, it will 
 10. Add a clear pass by inserting a new entry point function into the same `computeRasterizer.wgsl` file:
 
 ```wgsl
-@stage(compute) @workgroup_size(256, 1)
+@compute @workgroup_size(256, 1)
 fn clear(@builtin(global_invocation_id) global_id : vec3<u32>) {
   let index = global_id.x * 3u;
 
