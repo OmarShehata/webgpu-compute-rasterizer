@@ -6,13 +6,31 @@ import { loadModel } from './loadModel.js';
 
 init();
 
+const queryLabelMap = {}
+let printedTimestamps = false;
+
 async function init() {
   const adapter = await navigator.gpu.requestAdapter();
-  const device = await adapter.requestDevice();
+  const device = await adapter.requestDevice({
+    requiredFeatures: ["timestamp-query"],
+  });
   const canvas = document.querySelector("canvas");
   const context = canvas.getContext("webgpu");
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
+
+  const maxNumberOfQueries = 3;
+  const querySet = device.createQuerySet({
+    type: "timestamp",
+    count: maxNumberOfQueries,
+  });
+  const queryBuffer = device.createBuffer({
+    size: 8 * maxNumberOfQueries,
+    usage: GPUBufferUsage.QUERY_RESOLVE 
+      | GPUBufferUsage.STORAGE
+      | GPUBufferUsage.COPY_SRC
+      | GPUBufferUsage.COPY_DST,
+  });
 
   const devicePixelRatio = window.devicePixelRatio || 1;
   const presentationSize = [
@@ -32,13 +50,43 @@ async function init() {
   const { addComputePass, outputColorBuffer } = createComputePass(presentationSize, device, verticesArray);
   const { addFullscreenPass } = createFullscreenPass(presentationFormat, device, presentationSize, outputColorBuffer);
 
-  function draw() {
+  let queryIndex = 0;
+  function timestamp(encoder, label) {
+    encoder.writeTimestamp(querySet, queryIndex);
+    queryLabelMap[queryIndex] = label
+    queryIndex++;
+    if (queryIndex >= maxNumberOfQueries) queryIndex = 0;
+  }
+
+  async function draw() {
     const commandEncoder = device.createCommandEncoder();
 
-    addComputePass(commandEncoder);
+    timestamp(commandEncoder);
+    addComputePass(commandEncoder); 
+    timestamp(commandEncoder, "compute pass")
     addFullscreenPass(context, commandEncoder);
+    timestamp(commandEncoder, "fullscreen pass")
+
+    commandEncoder.resolveQuerySet(
+      querySet, 
+      0,// first query index 
+      maxNumberOfQueries, 
+      queryBuffer, 
+      0);// destination offset
 
     device.queue.submit([commandEncoder.finish()]);
+
+    // Print just once for readability
+    if (!printedTimestamps) {
+      // Read the storage buffer data
+      const arrayBuffer = await readBuffer(device, queryBuffer);
+      // Decode it into an array of timestamps in nanoseconds
+      const timingsNanoseconds = new BigInt64Array(arrayBuffer);
+      // Print the diff's with labels
+      printTimestampsWithLabels(timingsNanoseconds, queryLabelMap)
+      
+      printedTimestamps = true;
+    }
 
     requestAnimationFrame(draw);
   }
@@ -280,4 +328,52 @@ function createComputePass(presentationSize, device, verticesArray) {
   }
 
   return { addComputePass, outputColorBuffer };
+}
+
+async function readBuffer(device, buffer) {
+  const size = buffer.size;
+  // Get a GPU buffer for reading in an unmapped state.
+  const gpuReadBuffer = device.createBuffer({
+    size,
+    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+  });
+
+  const copyEncoder = device.createCommandEncoder();
+  copyEncoder.copyBufferToBuffer(
+    buffer /* source buffer */,
+    0 /* source offset */,
+    gpuReadBuffer /* destination buffer */,
+    0 /* destination offset */,
+    size /* size */
+  );
+
+  // Submit copy commands.
+  const copyCommands = copyEncoder.finish();
+  device.queue.submit([copyCommands]);
+
+  await gpuReadBuffer.mapAsync(GPUMapMode.READ);
+  return gpuReadBuffer.getMappedRange();
+}
+
+function printTimestampsWithLabels(timingsNanoseconds, labelMap) {
+  console.log("==========")
+  // Convert list of nanosecond timestamps to diffs in milliseconds
+  const timeDiffs = []
+  for (let i = 1; i < timingsNanoseconds.length; i++) {
+    let diff = Number(timingsNanoseconds[i] - timingsNanoseconds[i - 1])
+    diff /= 1_000_000
+    timeDiffs.push(diff)
+  }
+
+  // Print each diff with its associated label
+  for (let i = 0; i < timeDiffs.length; i++) {
+    const time = timeDiffs[i];
+    const label = labelMap[i + 1]
+    if (label) {
+      console.log(label, time.toFixed(2) + "ms")
+    } else {
+      console.log(i, time.toFixed(2) + "ms")
+    }
+  }
+  console.log("==========")
 }
