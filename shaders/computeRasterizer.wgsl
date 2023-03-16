@@ -86,6 +86,36 @@ fn draw_line(v1: vec3<f32>, v2: vec3<f32>) {
   }
 }
 
+fn DDA_round(a: f32) -> u32{
+  return u32(a + 0.5);
+}
+
+fn DDA_draw_line(v1: vec3<f32>, v2: vec3<f32>){
+  let dx = v2.x - v1.x;
+  let dy = v2.y - v1.y;
+
+  var x = v1.x;
+  var y = v1.y;
+
+  var steps = 0;
+
+  if(abs(dx) > abs(dy)){
+    steps = i32(abs(dx));
+  }else{
+    steps = i32(abs(dy));
+  }
+
+  let xIncrement = dx / f32(steps);
+  let yIncrement = dy / f32(steps);
+
+  color_pixel(DDA_round(x), DDA_round(y), 255u, 255u, 255u);
+  for(var k = 0; k < steps; k = k + 1){
+    x += xIncrement;
+    y += yIncrement;
+    color_pixel(DDA_round(x), DDA_round(y), 255u, 255u, 255u);
+  }
+}
+
 fn project(v: Vertex) -> vec3<f32> {
   var screenPos = uniforms.modelViewProjectionMatrix * vec4<f32>(v.x, v.y, v.z, 1.0);
   screenPos.x = (screenPos.x / screenPos.w) * uniforms.screenWidth;
