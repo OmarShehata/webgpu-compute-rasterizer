@@ -86,6 +86,34 @@ fn draw_line(v1: vec3<f32>, v2: vec3<f32>) {
   }
 }
 
+fn DDA_draw_line(v1: vec3<f32>, v2: vec3<f32>){
+  // color the pixel at the starting point
+  color_pixel(u32(round(v1.x)), u32(round(v1.y)), 255u, 0u, 255u);
+
+  var x = v1.x;
+  var y = v1.y;
+
+  // compute increments from start to end
+  let dx = v2.x - v1.x;
+  let dy = v2.y - v1.y;
+  let steps = max(abs(dx), abs(dy));
+
+  if(steps < 1e-6){
+    return;
+  }
+
+  // compute pixel-wise increments
+  let xIncrement = dx / steps;
+  let yIncrement = dy / steps;
+
+  // for each step, add a small increment to each coordinate
+  for(var k = 0; k < i32(steps); k = k + 1){
+    x += xIncrement;
+    y += yIncrement;
+    color_pixel(u32(round(x)), u32(round(y)), 255u, 0u, 255u);
+  }
+}
+
 fn project(v: Vertex) -> vec3<f32> {
   var screenPos = uniforms.modelViewProjectionMatrix * vec4<f32>(v.x, v.y, v.z, 1.0);
   screenPos.x = (screenPos.x / screenPos.w) * uniforms.screenWidth;
@@ -114,7 +142,9 @@ fn main(@builtin(global_invocation_id) global_id : vec3<u32>) {
     return;
   }
 
-  draw_triangle(v1, v2, v3);
+  DDA_draw_line(v1, v2);
+  DDA_draw_line(v2, v3);
+  DDA_draw_line(v3, v1);
 }
 
 
